@@ -1,0 +1,40 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-pipeline-app
+    ports:
+      - "9060:8000"
+    env_file:
+      - .env.local
+    volumes:
+      - .:/app
+      - "${HOME}/Documents/프로젝트:/data/documents:ro"
+    depends_on:
+      - db
+    networks:
+      - rag-network
+
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: rag-pipeline-db
+    ports:
+      - "5442:5432"
+    environment:
+      POSTGRES_DB: rag_pipeline
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - rag_pgdata:/var/lib/postgresql/data
+    networks:
+      - rag-network
+
+volumes:
+  rag_pgdata:
+
+networks:
+  rag-network:
+    driver: bridge

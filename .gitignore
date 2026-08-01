@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# Environment Variables
+.env
+.env.local
+.env.production
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Docker
+docker-compose.override.yml
+
+# Database
+*.db
+*.sqlite3
+
+# Vector DB local storage
+chroma_data/
+vector_store/
+
+# 요구사항 추출 중간 산출물 (재생성 가능)
+docs/requirements/_converted/
+docs/requirements/_extracted/
+
+# Logs
+logs/
+*.log
+
+# Test / Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Alembic
+alembic/versions/*.pyc
+
+# Claude Code
+.claude/
+
+# Temporary
+tmp/
+temp/
+*.tmp
+NUL

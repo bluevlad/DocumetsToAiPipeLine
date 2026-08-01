@@ -1,0 +1,48 @@
+# FastAPI
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# Document Converters
+pyhwp==0.1b12
+python-docx==1.1.2
+python-pptx==1.0.2
+openpyxl==3.1.5
+PyMuPDF==1.25.3
+
+# Text Processing
+langchain-text-splitters==0.3.4
+
+# Embedding - OpenAI (optional)
+openai==1.58.1
+
+# Embedding - Local (sentence-transformers)
+sentence-transformers>=3.0.0
+
+# Vector DB - ChromaDB (dev)
+chromadb>=1.5.0
+
+# Vector DB - pgvector (prod)
+asyncpg==0.30.0
+pgvector==0.3.6
+sqlalchemy[asyncio]==2.0.36
+
+# LLM
+anthropic==0.42.0
+
+# Database Migration
+alembic==1.14.1
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.25.0
+httpx==0.28.1
+
+# Utilities
+python-multipart==0.0.20
+tqdm==4.67.1
+
+# Phase 2: 병렬 처리
+aiosqlite==0.20.0
+tiktoken==0.8.0
