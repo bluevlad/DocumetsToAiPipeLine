@@ -1,0 +1,48 @@
+name: docpipeline
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: docpipeline-app
+    restart: unless-stopped
+    ports:
+      - "9060:8000"
+    env_file:
+      - .env.production
+    volumes:
+      # 운영은 소스 bind mount 없이 이미지에 구운 코드로 실행
+      - "${HOME}/개인문서/Projects:/data/documents:ro"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - docpipeline-net
+
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: docpipeline-db
+    restart: unless-stopped
+    ports:
+      - "5442:5432"
+    environment:
+      POSTGRES_DB: rag_pipeline
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rag_pipeline"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - docpipeline-net
+
+volumes:
+  pgdata:
+
+networks:
+  docpipeline-net:
+    driver: bridge

@@ -1,0 +1,118 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ "prod" ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+      - '.github/**/*.md'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy docpipeline to OrbStack
+    runs-on: [self-hosted, macos, orbstack]
+
+    defaults:
+      run:
+        working-directory: /Users/rainend/GIT/DocumetsToAiPipeLine
+        shell: bash
+
+    steps:
+      - name: Verify .env.production exists
+        run: |
+          if [ ! -f .env.production ]; then
+            echo "::error::.env.production 이 없습니다. /Users/rainend/GIT/DocumetsToAiPipeLine/.env.production 을 생성하세요 (.env.local 참고, DB는 db:5432)."
+            exit 1
+          fi
+
+      # 이 러너는 개발용 작업 복사본과 같은 디렉터리를 쓴다.
+      # 미커밋 작업이 있으면 reset --hard 로 유실되지 않도록 먼저 stash 해 둔다.
+      - name: Stash dirty working copy
+        id: stash
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git stash push -u -m "pre-deploy auto-stash (run ${{ github.run_id }})"
+            echo "stashed=true" >> $GITHUB_OUTPUT
+            echo "미커밋 변경을 stash 했습니다."
+          else
+            echo "stashed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Pull latest prod
+        run: |
+          git fetch origin prod
+          git checkout prod
+          git reset --hard origin/prod
+
+      - name: Build and start containers
+        run: docker compose -f docker-compose.production.yml up -d --build
+
+      - name: Run DB migrations (alembic)
+        run: |
+          if [ -f alembic.ini ]; then
+            for i in $(seq 1 15); do
+              if docker exec docpipeline-app python -m alembic upgrade head; then
+                echo "Migration complete"
+                exit 0
+              fi
+              echo "Migration attempt $i failed, retrying in 4s..."
+              sleep 4
+            done
+            echo "::error::alembic migration failed"
+            docker compose -f docker-compose.production.yml logs app --tail=50
+            exit 1
+          else
+            echo "alembic.ini 없음 — 마이그레이션 생략"
+          fi
+
+      - name: Health check
+        run: |
+          echo "Waiting for app to be healthy..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9060/health > /dev/null 2>&1; then
+              echo "App is healthy!"
+              curl -s http://localhost:9060/health | python3 -m json.tool
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::health check timeout (http://localhost:9060/health)"
+          docker compose -f docker-compose.production.yml logs app --tail=50
+          exit 1
+
+      - name: Deployment summary
+        run: |
+          echo "=========================================="
+          echo "  docpipeline Deployment Complete"
+          echo "=========================================="
+          echo "App:      http://localhost:9060  (https://docpipeline.unmong.com)"
+          echo "API Docs: http://localhost:9060/docs"
+          echo ""
+          docker compose -f docker-compose.production.yml ps
+
+      - name: Cleanup old images
+        if: always()
+        run: docker image prune -f 2>/dev/null || true
+
+      # 배포 후 작업 복사본을 main 으로 되돌리고 stash 를 복원한다.
+      # (이미지는 빌드 시점에 구워지고 운영 compose 는 소스 bind mount 를
+      #  쓰지 않으므로, 브랜치를 바꿔도 실행 중 컨테이너에는 영향 없음)
+      - name: Restore working copy to main
+        if: always()
+        continue-on-error: true
+        run: |
+          git fetch origin main
+          git checkout main
+          git merge --ff-only origin/main || true
+          if [ "${{ steps.stash.outputs.stashed }}" = "true" ]; then
+            if git stash pop; then
+              echo "stash 복원 완료"
+            else
+              echo "::warning::stash pop 충돌 — 'git stash list' 에서 수동 복원 필요"
+            fi
+          fi
+          echo "작업 복사본 브랜치: $(git rev-parse --abbrev-ref HEAD)"
